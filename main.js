@@ -82,20 +82,70 @@ function windowsUpdated() {
 }
 
 function setUpSphere() {
+    // Clear existing cubes or points
     cubes.forEach((c) => {
         world.remove(c);
     });
     cubes = [];
 
-    let c = new t.Color();
-    c.setHSL(0.1, 1.0, 0.5);
+    // Define the color and size of the points
+    let pointColor = new THREE.Color(0x00ff00);
+    let pointSize = 3.0; // Increase the point size for visibility
 
-    let s = 200;
-    let sphere = new t.Mesh(new t.SphereGeometry(s, 32, 32), new t.MeshBasicMaterial({color: c, wireframe: true}));
-    sphere.position.x = 840;
-    sphere.position.y = 420;
-    world.add(sphere);
-    cubes.push(sphere);
+    // Create a more detailed sphere geometry for more points
+    let sphereGeometry = new THREE.SphereGeometry(200, 64, 64); // Increased detail
+
+    // Convert to buffer geometry for efficiency
+    let bufferGeometry = new THREE.BufferGeometry().fromGeometry(sphereGeometry);
+
+    // Add additional points by cloning the positions
+    let positions = Float32Array.from(bufferGeometry.attributes.position.array);
+    let expandedPositions = new Float32Array(positions.length * 2); // Double the points
+    expandedPositions.set(positions);
+    expandedPositions.set(positions, positions.length);
+    bufferGeometry.setAttribute('position', new THREE.BufferAttribute(expandedPositions, 3));
+
+    // Create the points material
+    let pointsMaterial = new THREE.PointsMaterial({
+        color: pointColor,
+        size: pointSize,
+        sizeAttenuation: true,
+        transparent: true, // Allow transparency for a more gaseous effect
+        opacity: 0.6 // Adjust opacity as needed
+    });
+
+    // Create the points object
+    let points = new THREE.Points(bufferGeometry, pointsMaterial);
+
+    // Add the points to the world and cubes array
+    world.add(points);
+    cubes.push(points);
+}
+
+// Animation logic to add in your render loop
+function animatePoints() {
+    cubes.forEach((points) => {
+        let positions = points.geometry.attributes.position;
+        let count = positions.count;
+
+        for (let i = 0; i < count; i++) {
+            // Get each position and apply some perlin noise or a similar function
+            // to create a swirling motion. The noise function should ideally be 3D to
+            // affect x, y, and z independently.
+            let x = positions.getX(i);
+            let y = positions.getY(i);
+            let z = positions.getZ(i);
+
+            positions.setXYZ(
+                i,
+                x + (noise(x, y, z) - 0.5) * 0.3, // Swirl effect on x-axis
+                y + (noise(y, z, x) - 0.5) * 0.1, // Swirl effect on y-axis
+                z + (noise(z, x, y) - 0.5) * 0.6  // Swirl effect on z-axis
+            );
+        }
+
+        positions.needsUpdate = true; // Required after changing the positions
+    });
 }
 
 function updateWindowShape(easing = true) {
