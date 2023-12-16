@@ -1,20 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>3d example using three.js and multiple windows</title>
-	<script type="text/javascript" src="three.r124.min.js"></script>
-	<style type="text/css">
-		
-		*
-		{
-			margin: 0;
-			padding: 0;
-		}
-
-	</style>
+  <meta charset="utf-8">
+  <title>3D Example with Webcam and Three.js</title>
+  <script type="text/javascript" src="three.r124.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <style type="text/css">
+    * {
+      margin: 0;
+      padding: 0;
+    }
+  </style>
 </head>
 <body>
-	
-	<script type="module" src="main.js"></script>
+  <div class="container">
+    <video class="input_video" style="display: none; width: 100vw; height: 100vh;"></video>
+  </div>
+
+  <!-- Include your main.js script here -->
+  <script type="module" src="main.js"></script>
+
+  <!-- MediaPipe Hands and Webcam Initialization Script -->
+  <script type="module" src="cam.js"></script>
 </body>
 </html>
