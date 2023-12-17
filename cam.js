@@ -13,8 +13,8 @@ const hands = new Hands({locateFile: (file) => {
 hands.setOptions({
     maxNumHands: 1,
     modelComplexity: 1,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
+    minDetectionConfidence: 0.3,
+    minTrackingConfidence: 0.3
 });
 hands.onResults(onResults); // Ensure the onResults function is defined in your scripts
 

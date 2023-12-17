@@ -1,14 +1,21 @@
 import WindowManager from './WindowManager.js';
 
 const t = THREE;
+let color = '8ecae6'
 let camera, scene, renderer, world;
 let near, far;
 let pixR = window.devicePixelRatio ? window.devicePixelRatio : 1;
 let cubes = [];
+let particleSystem;
+let particlePositions;
+let particleCount = 15000; // Number of particles in the trail
+let particleHistoryLength = 5; // Length of the trail for each particle
+let historySize = 5; // Size of the position history
 let sceneOffsetTarget = {x: 0, y: 0};
 let sceneOffset = {x: 0, y: 0};
 let sphereTargetSize = 1;  // Target size for the sphere
 let sphereSizeLerpRate = 0.1;  // Lerp rate for smoothing the size change
+let pointColor = new THREE.Color(0x8ecae6);
 
 let today = new Date();
 today.setHours(0, 0, 0, 0);
@@ -40,6 +47,7 @@ function init() {
     setTimeout(() => {
         setupScene();
         setupWindowManager();
+        setupParticleSystem();
         resize();
         updateWindowShape(false);
         render();
@@ -77,6 +85,28 @@ function setupWindowManager() {
     windowsUpdated();
 }
 
+
+function setupParticleSystem() {
+    let particleGeometry = new THREE.BufferGeometry();
+    particlePositions = new Float32Array(particleCount * 3 * particleHistoryLength);
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+
+    let particleMaterial = new THREE.PointsMaterial({
+        color: pointColor,
+        size: 2,
+        transparent: true,
+        opacity: 0.3
+    });
+
+    particleSystem = new THREE.Points(particleGeometry, particleMaterial);
+    scene.add(particleSystem);
+
+    // Initialize particle positions to be off-screen
+    for (let i = 0; i < particlePositions.length; i++) {
+        particlePositions[i] = -1000; // Position them far off-screen
+    }
+}
+
 function windowsUpdated() {
     setUpSphere();
 }
@@ -89,8 +119,7 @@ function setUpSphere() {
     cubes = [];
 
     // Define the color and size of the points
-    let pointColor = new THREE.Color(0x00ff00);
-    let pointSize = 3.0; // Increase the point size for visibility
+    let pointSize = 1.0; // Increase the point size for visibility
 
     // Create a more detailed sphere geometry for more points
     let sphereGeometry = new THREE.SphereGeometry(200, 64, 64); // Increased detail
@@ -122,7 +151,6 @@ function setUpSphere() {
     cubes.push(points);
 }
 
-// Animation logic to add in your render loop
 function animatePoints() {
     cubes.forEach((points) => {
         let positions = points.geometry.attributes.position;
@@ -155,16 +183,11 @@ function updateWindowShape(easing = true) {
 
 let posTarget = {x: 0, y: 0};
 
-window.addEventListener('mousemove', (event) => {
-    mousePos.x = event.clientX;
-    mousePos.y = event.clientY;
-});
-
 function convertCoordinates(normalizedX, normalizedY, canvasWidth, canvasHeight) {
     const boundary = 0.2;
     const boostX = calculateBoostFactor(normalizedX, boundary);
     const boostY = calculateBoostFactor(normalizedY, boundary);
-    let x = ((1 - normalizedX) * canvasWidth *1.1) * boostX;
+    let x = ((1 - normalizedX) * canvasWidth * 1.1) * boostX;
     let y = (normalizedY * canvasHeight * 1.1) * boostY;
     console.log('normalized coordinates', normalizedX, normalizedY);
     return { x, y };
@@ -177,6 +200,55 @@ function calculateBoostFactor(coordinate, boundary) {
         return 1 + ((coordinate - (1 - boundary)) / (boundary * 5));
     }
     return 1;
+}
+
+function spawnParticleAtSphereBorder(spherePosition, sphereRadius) {
+    let u = Math.random();
+    let v = Math.random();
+    let theta = u * 2.0 * Math.PI;
+    let phi = Math.acos(2.0 * v - 1.0);
+    let x = sphereRadius * Math.sin(phi) * Math.cos(theta);
+    let y = sphereRadius * Math.sin(phi) * Math.sin(theta);
+    let z = sphereRadius * Math.cos(phi);
+
+    // Return the particle position relative to the sphere's position
+    return { 
+        x: spherePosition.x + x, 
+        y: spherePosition.y + y, 
+        z: spherePosition.z + z 
+    };
+}
+
+function updateParticles() {
+    // Shift positions back in the array to create a history trail
+    for (let i = particleCount - 1; i >= 0; i--) {
+        for (let j = particleHistoryLength - 1; j > 0; j--) {
+            let idx = (i * particleHistoryLength + j) * 3;
+            let prevIdx = (i * particleHistoryLength + j - 1) * 3;
+            particlePositions[idx] = particlePositions[prevIdx];
+            particlePositions[idx + 1] = particlePositions[prevIdx + 1];
+            particlePositions[idx + 2] = particlePositions[prevIdx + 2];
+        }
+    }
+
+    let parentSphereRadius = cubes[0].scale.x * 200; // Assuming this is the correct radius
+    let randomnessFactor = 50; // Adjust this value to increase/decrease the randomness
+
+    for (let i = 0; i < particleCount; i++) {
+        let p = spawnParticleAtSphereBorder(cubes[0].position, parentSphereRadius);
+        let baseIdx = i * particleHistoryLength * 3;
+
+        // Introduce randomness
+        let randomX = (Math.random() - 0.5) * randomnessFactor;
+        let randomY = (Math.random() - 0.5) * randomnessFactor;
+        let randomZ = (Math.random() - 0.5) * randomnessFactor;
+
+        particlePositions[baseIdx] = p.x + randomX;
+        particlePositions[baseIdx + 1] = p.y + randomY;
+        particlePositions[baseIdx + 2] = p.z + randomZ;
+    }
+
+    particleSystem.geometry.attributes.position.needsUpdate = true;
 }
 
 function render() {
@@ -217,8 +289,22 @@ function render() {
         cube.rotation.y = t * .3;
     }
 
+    updateParticles(); // Update the particle positions and trails
+    
+
+
+
     renderer.render(scene, camera);
     requestAnimationFrame(render);
+}
+
+// Call this once during initialization, not in the render loop
+function initializeParticles() {
+    // Initialize particle positions to be off-screen
+    for (let i = 0; i < particlePositions.length; i++) {
+        particlePositions[i] = -1000; // Position them far off-screen
+    }
+    particleSystem.geometry.attributes.position.needsUpdate = true;
 }
 
 function resize() {
