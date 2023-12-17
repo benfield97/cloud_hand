@@ -290,10 +290,6 @@ function render() {
     }
 
     updateParticles(); // Update the particle positions and trails
-    
-
-
-
     renderer.render(scene, camera);
     requestAnimationFrame(render);
 }
